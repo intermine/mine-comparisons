@@ -1,0 +1,22 @@
+[
+  {
+    "name": "FlyMine",
+    "root": "http://www.flymine.org/query"
+  },
+  {
+    "name": "MouseMine",
+    "root": "http://www.mousemine.org/mousemine"
+  },
+  {
+    "name": "YeastMine",
+    "root": "http://yeastmine.yeastgenome.org/yeastmine"
+  },
+  {
+    "name": "RatMine",
+    "root": "http://ratmine.mcw.edu/ratmine"
+  },
+  {
+    "name": "ZFin",
+    "root": "http://zebrafishmine.org"
+  }
+]

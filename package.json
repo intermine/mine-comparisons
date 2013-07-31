@@ -1,0 +1,10 @@
+{
+  "name": "Web-Reports",
+  "version": "0.1.0",
+  "dependencies": {
+    "connect": "~2.8.4",
+    "express": "~3.3.4",
+    "coffee-script": "~1.6.3",
+    "express-coffee": "0.0.9"
+  }
+}

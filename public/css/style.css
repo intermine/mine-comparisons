@@ -1,0 +1,48 @@
+td.yes {
+    background: #8ada71;
+}
+
+td.no {
+    background: #da8271;
+}
+
+.fd-comparison td.yes {
+    background: rgba(138, 218, 113, 0.75);
+}
+
+.fd-comparison td.no {
+    background: rgba(218, 130, 113, 0.75);
+}
+
+.fd-comparison {
+    background: #efefef;
+}
+.fd-comparison > td {
+    padding-left: 3em;
+}
+
+span.field-type {
+    font-weight: bold;
+    color: #aaa;
+}
+span.field-type::before {
+    content: '::';
+}
+
+body {
+    font-family: "Roboto", "Droid Sans", "Helvetica", "Arial", sans-serif;
+    background: #eee;
+}
+
+.page {
+    background: #fefefe;
+    width: 90%;
+    margin-left: auto;
+    margin-right: auto;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+}
+
+#main {
+    padding: 0 1em 1em 1em;
+}
