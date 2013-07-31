@@ -8,9 +8,8 @@ var express = require('express')
   , serveIndex = function(_, response) { response.sendfile(__dirname + "/public/index.html"); }
   , coffOpts = {path: path.join(__dirname, "public"), live: true, uglify: false}
   , app = express()
-  , server;
+  , server, key, address;
 
-var key;
 for (key in config) {
   app.set(key, config[key]);
 }
@@ -25,5 +24,8 @@ app
 server = http.createServer(app);
 server.listen(env.PORT || 0);
 
-console.log("Listening on port: " + server.address().port);
+address = server.address();
+if (address && address.port) {
+  console.log("Listening on port: " + server.address().port);
+}
 
