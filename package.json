@@ -1,6 +1,9 @@
 {
-  "name": "Web-Reports",
+  "name": "web-reports",
   "version": "0.1.0",
+  "scripts": {
+    "start": "app.js"
+  },
   "dependencies": {
     "connect": "~2.8.4",
     "express": "~3.3.4",
