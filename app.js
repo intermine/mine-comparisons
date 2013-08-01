@@ -18,8 +18,10 @@ app
   .use(express.logger('short'))
   .use(require('express-coffee')(coffOpts))
   .use(express.static(__dirname + '/public'))
-  .get("/",         serveIndex)
-  .get("/services", getServices);
+  .get("/",          serveIndex)
+  .get("/models",    serveIndex)
+  .get("/templates", serveIndex)
+  .get("/services",  getServices);
 
 server = http.createServer(app);
 server.listen(env.PORT || 0);

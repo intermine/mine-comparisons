@@ -4,15 +4,52 @@ class Services extends Backbone.Collection
 class WebReports extends Backbone.Router
 
   routes:
-    "": "models"
-    "/models": "models"
-    "/templates": "templates"
+    "": "index"
+    "models": "models"
+    "templates": "templates"
 
   models: ->
+    console.log "Loading models"
     collection = new Services
     modelReport = new ModelReport {collection}
-    modelReport.setElement document.getElementById 'main'
-    modelReport.render()
+    @load modelReport
+
+  index: -> @load new MainMenu
+
+  load: (view) ->
+    @main?.remove()
+    @main = view
+    view.render()
+    document.getElementById('main').appendChild(@main.el)
+
+class MainMenu extends Backbone.View
+
+  TEMPLATE: """
+    <div>
+      <ul class="thumbnails">
+        <li class="span6">
+          <div class="thumbnail models">
+            <img src="/images/models.png" alt="models">
+            <a href="/models">Compare Models</a>
+          </div>
+        </li>
+        <li class="span6">
+          <div class="thumbnail templates">
+            <img src="/images/templates.png" alt="models">
+            <a href="/templates">Compare Templates</a>
+          </div>
+        </li>
+      </ul>
+    </div>
+  """
+
+  render: ->
+    @$el.append @TEMPLATE
+    @
+
+  events: ->
+   "click a": (evt) -> evt.preventDefault()
+   "click .models": -> Backbone.history.navigate("/models", {trigger: true})
 
 class ModelReport extends Backbone.View
 
@@ -192,8 +229,8 @@ text = (node, txt) ->
 
 main = ->
 
-  router = new WebReports
-
+  new WebReports
+  console.log "Starting backbone history"
   Backbone.history.start pushState: true
 
 $ main
