@@ -9,10 +9,12 @@ class WebReports extends Backbone.Router
     "templates": "templates"
 
   models: ->
-    console.log "Loading models"
     collection = new Services
-    modelReport = new ModelReport {collection}
-    @load modelReport
+    @load new ModelReport {collection}
+
+  templates: ->
+    collection = new Services
+    @load new TemplateReport {collection}
 
   index: -> @load new MainMenu
 
@@ -50,59 +52,122 @@ class MainMenu extends Backbone.View
   events: ->
    "click a": (evt) -> evt.preventDefault()
    "click .models": -> Backbone.history.navigate("/models", {trigger: true})
+   "click .templates": -> Backbone.history.navigate("/templates", {trigger: true})
 
-class ModelReport extends Backbone.View
+
+class Report extends Backbone.View
 
   TEMPLATE: _.template """
-    <h2>Model Comparision</h2>
+    <h2><%= subject %> Comparison</h2>
     <div class="sort-buttons btn-group">
-      <a class="btn active sort-class-name">Sort by class name</a>
+      <a class="btn active sort-name">Sort by template name</a>
       <a class="btn sort-ubiquity">Sort by ubiquity</a>
     </div>
     <table class="table">
       <thead>
         <tr>
-          <th>Class Name</th>
+          <th><%= unit %> Name</th>
           <% services.forEach(function(s) { %>
             <th><%- s.name %></th>
           <% }); %>
         </tr>
       </thead>
-      <tbody class="class-comparisons"></tbody>
+      <tbody class="comparisons"></tbody>
     </table>
   """
 
   events: ->
     "click .sort-ubiquity": "sortByUbiquity"
-    "click .sort-class-name": "sortByClassName"
+    "click .sort-name": "sortByName"
+
+  render: ->
+    @collection.fetch(reset: true).then =>
+      data = {@subject, @unit, services: @collection.toJSON()}
+      @$el.empty().append(@TEMPLATE data)
+      @collection.each @compareService
+    @
+
+  initialize: ->
+    @units = new Backbone.Collection
+    @units.comparator = 'name'
+    @units.on "updated", @drawComparison, @
 
   toggleSortButtons: (evt) ->
     @$('.sort-buttons a').removeClass 'active'
     $(evt.target).addClass 'active'
 
-  sortByClassName: (evt) ->
+  sortByName: (evt) ->
     @toggleSortButtons(evt)
-    @classes.comparator = 'name'
-    @classes.sort()
-    @classes.trigger("updated")
+    @units.comparator = 'name'
+    @units.sort()
+    @units.trigger("updated")
 
   sortByUbiquity: (evt) ->
     @toggleSortButtons(evt)
-    @classes.comparator = (cls) -> cls.get('presentIn').length
-    @classes.sort()
-    @classes.trigger("updated")
+    @units.comparator = (unit) -> unit.get('presentIn').length
+    @units.sort()
+    @units.trigger("updated")
 
-  initialize: ->
-    @classes = new Backbone.Collection
-    @classes.comparator = 'name'
-    @classes.on "updated", @drawComparison, @
+  drawComparison: ->
+    fragment = document.createDocumentFragment()
+    snames = @collection.pluck('name')
+    @units.each (unit) =>
+      tr = @compare unit, snames
+      fragment.appendChild(tr.el)
+      tr.render()
+    $tbody = @$ '.comparisons'
+    $tbody.empty().append(fragment)
 
-  render: ->
-    @collection.fetch(reset: true).then =>
-      @$el.empty()
-          .append(@TEMPLATE services: @collection.toJSON())
-      @collection.each @compareService
-    @
+class TemplateReport extends Report
+
+  subject: 'Public Template'
+  unit: 'Template'
+
+  compare: (template, snames) ->
+    new TemplateComparison model: template, services: snames
+
+  compareService: (service) =>
+    s = new intermine.Service root: service.get('root')
+    s.fetchTemplates().then (templateMapping) =>
+      for name, template of templateMapping
+        @registerTemplate name, template, service
+        @updateTemplate name, template, service
+      @units.trigger "updated"
+
+  registerTemplate: (name, template, service) ->
+    unless @units.findWhere {name}
+      @units.add {name, select: {}, where: {}, presentIn: []}
+
+  updateTemplate: (name, template, service) ->
+    tm = @units.findWhere {name}
+    tm.get('presentIn').push(service.get('name'))
+    return unless template.select and template.where
+    select = tm.get('select')
+    for path in template.select
+      sm = new PathModel path
+      key = sm.key()
+      if key of select
+        sm = select[key]
+      else
+        select[key] = sm
+      sm.set foundIn: sm.get('foundIn').concat([service])
+
+    where = tm.get('where')
+    for constraint in template.where
+      cm = new ConstraintModel constraint
+      key = cm.key()
+      if key of where
+        cm = where[key]
+      else
+        where[key] = cm
+      cm.set foundIn: cm.get('foundIn').concat([service])
+
+class ModelReport extends Report
+
+  subject: 'Model'
+  unit: 'Class'
+
+  compare: (cls, snames) -> new ClassComparison model: cls, services: snames
 
   compareService: (service) =>
     s = new intermine.Service(root: service.get('root'))
@@ -110,14 +175,14 @@ class ModelReport extends Backbone.View
       for name, cls of classes
         @registerClass name, cls, service
         @updateClass name, cls, service
-      @classes.trigger "updated"
+      @units.trigger "updated"
 
   registerClass: (name, cls, service) ->
-    unless @classes.findWhere {name}
-      @classes.add {name, fields: {}, presentIn: []}
+    unless @units.findWhere {name}
+      @units.add {name, fields: {}, presentIn: []}
 
   updateClass: (name, cls, service) ->
-    cm = @classes.findWhere {name}
+    cm = @units.findWhere {name}
     fields = cm.get('fields')
     cm.get("presentIn").push(service.get("name"))
     for name, fld of cls.fields
@@ -129,16 +194,6 @@ class ModelReport extends Backbone.View
         fields[fkey] = fm
       fm.set foundIn: fm.get('foundIn').concat([service])
 
-  drawComparison: ->
-    fragment = document.createDocumentFragment()
-    snames = @collection.pluck('name')
-    @classes.each (cls) ->
-      tr = new ClassComparison model: cls, services: snames
-      fragment.appendChild(tr.el)
-      tr.render()
-    $tbody = @$ '.class-comparisons'
-    $tbody.empty().append(fragment)
-
 class FieldModel extends Backbone.Model
 
   initialize: (fld) ->
@@ -146,17 +201,30 @@ class FieldModel extends Backbone.Model
 
   key: -> "#{ @get('name') }::#{ @get('type') }"
 
+class PathModel extends Backbone.Model
 
-class ClassComparison extends Backbone.View
+  initialize: (path) ->
+    @set foundIn: [], path: path
+
+  key: -> @get 'path'
+
+class ConstraintModel extends Backbone.Model
+
+  initialize: (constraint) ->
+    @set foundIn: []
+
+  key: -> "#{ @get('path') } #{ @get('op') }"
+
+class Comparison extends Backbone.View
 
   tagName: 'tr'
-  className: 'cd-comparison'
+  className: 'comparison'
 
   initialize: ->
     @services = @options.services
 
   events: ->
-    "click td.name": "toggleFields"
+    "click td.name": "toggleDetails"
 
   render: ->
     {name, presentIn} = @model.toJSON()
@@ -166,22 +234,46 @@ class ClassComparison extends Backbone.View
       @el.appendChild(tableCell(there, {className: there}))
     @
 
-  toggleFields: ->
-    if @fieldComparison?
-      @fieldComparison.remove()
+class ClassComparison extends Comparison
+
+  toggleDetails: ->
+    if fc = @fieldComparison?
+      fc.remove()
       @fieldComparison = null
     else
-      @fieldComparison = new FieldComparison {@model, @services}
-      @fieldComparison.render().$el.insertAfter(@el)
+      fc = @fieldComparison = new FieldComparison {@model, @services}
+      fc.render().$el.insertAfter(@el)
 
   remove: ->
-    @fieldComparision?.remove()
+    @fieldComparison?.remove()
     super()
 
-class FieldComparison extends Backbone.View
+class TemplateComparison extends Comparison
+
+  toggleDetails: ->
+    if vc = @viewComparison
+      vc.remove()
+      @viewComparison = null
+    else
+      vc = @viewComparison = new ViewComparison {@model, @services}
+      vc.render().$el.insertAfter @el
+
+    if cc = @constraintComparison
+      cc.remove()
+      @constraintComparison = null
+    else
+      cc = @constraintComparison = new ConstraintComparison {@model, @services}
+      cc.render().$el.insertAfter @el
+
+  remove: ->
+    @viewComparison?.remove()
+    @constraintComparison?.remove()
+    super()
+
+class DetailComparison extends Backbone.View
 
   tagName: 'tr'
-  className: 'fd-comparison'
+  className: 'comparison'
 
   render: ->
     tab = document.createElement('table')
@@ -192,18 +284,19 @@ class FieldComparison extends Backbone.View
     head = document.createElement('thead')
     headR = document.createElement('tr')
     head.appendChild(headR)
-    for t in ["field name"].concat(@options.services)
+    for t in [@thContent].concat(@options.services)
       headR.appendChild(textElem('th', t))
     tab.appendChild(head)
     body = document.createElement('tbody')
 
-    {fields} = @model.toJSON()
-    for key, fm of fields
-      foundIn = fm.get('foundIn')
+    things = @model.toJSON()[@detail]
+
+    for key, model of things
+      foundIn = model.get('foundIn')
       tr = document.createElement('tr')
       nameCell = document.createElement('td')
-      nameCell.appendChild(textElem('span', fm.get('name'), className: 'field-name'))
-      nameCell.appendChild(textElem('span', fm.get('type'), className: 'field-type'))
+      for child in @detailParts(model)
+        nameCell.appendChild(child)
       tr.appendChild(nameCell)
       for s in @options.services
         there = if _.any(foundIn, (m) -> m.get('name') is s) then "yes" else "no"
@@ -213,6 +306,38 @@ class FieldComparison extends Backbone.View
     tab.appendChild body
 
     @
+
+class FieldComparison extends DetailComparison
+
+  thContent: "field name"
+  detail: 'fields'
+
+  detailParts: (fieldModel) -> [
+      textElem('span', fieldModel.get('name'), className: 'field-name'),
+      textElem('span', fieldModel.get('type'), className: 'field-type')
+  ]
+
+class ViewComparison extends DetailComparison
+
+  thContent: "selected path"
+  detail: 'select'
+
+  detailParts: (pathModel) -> [
+      textElem('code', pathModel.get('path'), className: 'selected-path')
+  ]
+
+class ConstraintComparison extends DetailComparison
+
+  thContent: "constraint"
+  detail: "where"
+
+  detailParts: (constraintModel) -> [
+      textElem('code', constraintModel.get('path'), className: 'constrained-path'),
+      textElem('span', " "),
+      textElem('code', constraintModel.get('op'), className: 'constraint-operator'),
+      textElem('span', " "),
+      textElem('span', "something")
+  ]
 
 tableCell = (txt, opts) -> textElem 'td', txt, opts
 
