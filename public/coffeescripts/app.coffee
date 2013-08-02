@@ -59,8 +59,9 @@ class Report extends Backbone.View
 
   TEMPLATE: _.template """
     <h2><%= subject %> Comparison</h2>
+    <a class="btn sort-invert">Invert Order</a>
     <div class="sort-buttons btn-group">
-      <a class="btn active sort-name">Sort by template name</a>
+      <a class="btn active sort-name">Sort by name</a>
       <a class="btn sort-ubiquity">Sort by ubiquity</a>
     </div>
     <table class="table">
@@ -76,9 +77,14 @@ class Report extends Backbone.View
     </table>
   """
 
+  compare = (a, b) -> if a > b then 1 else if a is b then 0 else -1
+  ubiquity = (unit) -> unit.get('presentIn').length
+  nameOf = (unit) -> unit.get('name')
+
   events: ->
     "click .sort-ubiquity": "sortByUbiquity"
     "click .sort-name": "sortByName"
+    "click .sort-invert": "sortInvert"
 
   render: ->
     @collection.fetch(reset: true).then =>
@@ -89,24 +95,43 @@ class Report extends Backbone.View
 
   initialize: ->
     @units = new Backbone.Collection
-    @units.comparator = 'name'
+    @sorting = new Backbone.Model
+    @sorting.on "change", @updateSort, @
+    @sorting.set by: 'name', direction: 'ASC'
     @units.on "updated", @drawComparison, @
 
-  toggleSortButtons: (evt) ->
-    @$('.sort-buttons a').removeClass 'active'
+  toggleButtons: (selector, evt) ->
+    @$(selector + ' a').removeClass 'active'
     $(evt.target).addClass 'active'
 
-  sortByName: (evt) ->
-    @toggleSortButtons(evt)
-    @units.comparator = 'name'
+  updateSort: ->
+    fn = switch @sorting.get('by')
+      when 'name' then nameOf
+      when 'ubiquity' then ubiquity
+      else throw new Error("Unknown sort property")
+
+    sortFn = switch @sorting.get('direction')
+      when 'ASC' then (a, b) -> compare fn(a), fn(b)
+      when 'DESC' then (a, b) -> compare fn(b), fn(a)
+      else throw new Error("Unknown sort direction")
+
+    @units.comparator = sortFn
     @units.sort()
     @units.trigger("updated")
 
+  sortByName: (evt) ->
+    @toggleButtons('.sort-buttons', evt)
+    @sorting.set by: 'name'
+
   sortByUbiquity: (evt) ->
-    @toggleSortButtons(evt)
-    @units.comparator = (unit) -> unit.get('presentIn').length
-    @units.sort()
-    @units.trigger("updated")
+    @toggleButtons('.sort-buttons', evt)
+    @sorting.set by: 'ubiquity'
+
+  sortInvert: (evt) ->
+    $elem = $ evt.target
+    wasActive = $elem.is '.active'
+    $elem.toggleClass 'active'
+    @sorting.set direction: (if wasActive then 'ASC' else 'DESC')
 
   drawComparison: ->
     fragment = document.createDocumentFragment()
@@ -179,11 +204,12 @@ class ModelReport extends Report
 
   registerClass: (name, cls, service) ->
     unless @units.findWhere {name}
-      @units.add {name, fields: {}, presentIn: []}
+      @units.add {name, parents: {}, fields: {}, presentIn: []}
 
   updateClass: (name, cls, service) ->
     cm = @units.findWhere {name}
     fields = cm.get('fields')
+    parents = cm.get('parents')
     cm.get("presentIn").push(service.get("name"))
     for name, fld of cls.fields
       fm = new FieldModel fld
@@ -193,6 +219,16 @@ class ModelReport extends Report
       else
         fields[fkey] = fm
       fm.set foundIn: fm.get('foundIn').concat([service])
+
+    for parent in cls.parents()
+      pm = new PathModel parent
+      key = pm.key()
+      if key of parents
+        pm = parents[key]
+      else
+        parents[key] = pm
+      pm.set foundIn: pm.get('foundIn').concat([service])
+
 
 class FieldModel extends Backbone.Model
 
@@ -237,12 +273,20 @@ class Comparison extends Backbone.View
 class ClassComparison extends Comparison
 
   toggleDetails: ->
-    if fc = @fieldComparison?
+
+    if fc = @fieldComparison
       fc.remove()
       @fieldComparison = null
     else
       fc = @fieldComparison = new FieldComparison {@model, @services}
       fc.render().$el.insertAfter(@el)
+
+    if ic = @inheritanceComparison
+      ic.remove()
+      @inheritanceComparison = null
+    else
+      ic = @inheritanceComparison = new InheritanceComparison {@model, @services}
+      ic.render().$el.insertAfter(@el)
 
   remove: ->
     @fieldComparison?.remove()
@@ -273,7 +317,7 @@ class TemplateComparison extends Comparison
 class DetailComparison extends Backbone.View
 
   tagName: 'tr'
-  className: 'comparison'
+  className: 'detail comparison'
 
   render: ->
     tab = document.createElement('table')
@@ -290,8 +334,13 @@ class DetailComparison extends Backbone.View
     body = document.createElement('tbody')
 
     things = @model.toJSON()[@detail]
+    models = _.sortBy(_.values(things), (m) -> m.get('name'))
 
-    for key, model of things
+    if models.length is 0
+      @$el.empty()
+      return @
+
+    for model in models
       foundIn = model.get('foundIn')
       tr = document.createElement('tr')
       nameCell = document.createElement('td')
@@ -316,6 +365,13 @@ class FieldComparison extends DetailComparison
       textElem('span', fieldModel.get('name'), className: 'field-name'),
       textElem('span', fieldModel.get('type'), className: 'field-type')
   ]
+
+class InheritanceComparison extends DetailComparison
+
+  thContent: "Inherits from"
+  detail: "parents"
+
+  detailParts: (pathModel) -> [ textElem('code', pathModel.get('path')) ]
 
 class ViewComparison extends DetailComparison
 

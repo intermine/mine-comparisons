@@ -6,18 +6,18 @@ td.no {
     background: #da8271;
 }
 
-.fd-comparison td.yes {
+.detail.comparison td.yes {
     background: rgba(138, 218, 113, 0.75);
 }
 
-.fd-comparison td.no {
+.detail.comparison td.no {
     background: rgba(218, 130, 113, 0.75);
 }
 
-.fd-comparison {
+.detail.comparison {
     background: #efefef;
 }
-.fd-comparison > td {
+.detail.comparison > td {
     padding-left: 3em;
 }
 
@@ -27,6 +27,13 @@ span.field-type {
 }
 span.field-type::before {
     content: '::';
+}
+
+.sort-invert {
+    float: right;
+}
+.sort-buttons {
+    display: inline-block;
 }
 
 body {
