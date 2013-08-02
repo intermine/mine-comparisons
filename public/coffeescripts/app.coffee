@@ -166,9 +166,8 @@ class TemplateReport extends Report
   updateTemplate: (name, template, service) ->
     tm = @units.findWhere {name}
     tm.get('presentIn').push(service.get('name'))
-    return unless template.select and template.where
     select = tm.get('select')
-    for path in template.select
+    for path in (template.select or template.view)
       sm = new PathModel path
       key = sm.key()
       if key of select
@@ -178,7 +177,7 @@ class TemplateReport extends Report
       sm.set foundIn: sm.get('foundIn').concat([service])
 
     where = tm.get('where')
-    for constraint in template.where
+    for constraint in (template.where or template.constraints)
       cm = new ConstraintModel constraint
       key = cm.key()
       if key of where
