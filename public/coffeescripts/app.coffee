@@ -250,7 +250,7 @@ class ConstraintModel extends Backbone.Model
   initialize: (constraint) ->
     @set foundIn: []
 
-  key: -> "#{ @get('path') } #{ @get('op') }"
+  key: -> "#{ @get('path') } #{ @get('op') or @get('type') } #{ @get('switched') or 'LOCKED' }"
 
 class Comparison extends Backbone.View
 
@@ -388,13 +388,27 @@ class ConstraintComparison extends DetailComparison
   thContent: "constraint"
   detail: "where"
 
-  detailParts: (constraintModel) -> [
-      textElem('code', constraintModel.get('path'), className: 'constrained-path'),
+  detailParts: (constraintModel) ->
+    {path, op, type, switched, editable} = constraintModel.toJSON()
+    parts = [
+      textElem('code', path, className: 'constrained-path'),
       textElem('span', " "),
-      textElem('code', constraintModel.get('op'), className: 'constraint-operator'),
+      textElem('code', (op or type), className: 'constraint-operator'),
       textElem('span', " "),
-      textElem('span', "something")
-  ]
+      textElem('span', (if op? then "?" else ''))
+    ]
+    if switched?
+      parts = parts.concat( [
+        textElem('span', ' '), textElem('code', switched)
+      ])
+
+    if editable?
+      parts = parts.concat( [
+        textElem('span', ' '), textElem('code', (if editable then "editable" else "hidden"))
+      ])
+
+    parts
+
 
 tableCell = (txt, opts) -> textElem 'td', txt, opts
 
