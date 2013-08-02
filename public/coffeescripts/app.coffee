@@ -234,6 +234,8 @@ class FieldModel extends Backbone.Model
 
   initialize: (fld) ->
     @set foundIn: [], type: (fld.type or fld.referencedType)
+    if fld.isCollection
+      @set type: "Collection<#{ fld.referencedType }>"
 
   key: -> "#{ @get('name') }::#{ @get('type') }"
 
