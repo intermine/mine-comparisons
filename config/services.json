@@ -16,6 +16,10 @@
     "root": "http://ratmine.mcw.edu/ratmine"
   },
   {
+    "name": "WormMine",
+    "root": "http://www.wormbase.org/tools/wormmine"
+  },
+  {
     "name": "ZFin",
     "root": "http://zebrafishmine.org"
   }
